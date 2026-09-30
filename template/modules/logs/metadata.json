@@ -1,0 +1,86 @@
+{
+  "name": "Dynatrace Log Forwarder",
+  "description": "Reads messages from a Pub/Sub subscription and forwards them to the Dynatrace log ingest endpoint.",
+  "parameters": [
+    {
+      "name": "subscription",
+      "label": "Pub/Sub Subscription",
+      "helpText": "Full subscription path, e.g. projects/my-project/subscriptions/dac-log-forwarder-sub",
+      "isOptional": false,
+      "regexes": ["^projects\\/[^\\n\\r\\/]+\\/subscriptions\\/[^\\n\\r\\/]+$"]
+    },
+    {
+      "name": "dynatraceUrl",
+      "label": "Dynatrace Log Ingest URL",
+      "helpText": "Dynatrace log ingest endpoint, e.g. https://example.live.dynatrace.com/api/gcp/pubsub/v1/logs",
+      "isOptional": false
+    },
+    {
+      "name": "dynatraceApiTokenSecret",
+      "label": "Dynatrace API Token Secret",
+      "helpText": "Secret Manager resource name for the Dynatrace API token, e.g. projects/my-project/secrets/dynatrace-api-token/versions/latest",
+      "isOptional": false,
+      "regexes": ["^projects\\/[^\\n\\r\\/]+\\/secrets\\/[^\\n\\r\\/]+\\/versions\\/[^\\n\\r\\/]+$"]
+    },
+    {
+      "name": "windowSeconds",
+      "label": "Window Duration (seconds)",
+      "helpText": "Maximum time to buffer events before flushing a partial batch.",
+      "isOptional": true,
+      "defaultValue": "10",
+      "regexes": ["^[1-9][0-9]*$"]
+    },
+    {
+      "name": "batchSize",
+      "label": "Batch Size",
+      "helpText": "Maximum number of log events per Dynatrace ingest request.",
+      "isOptional": true,
+      "defaultValue": "1000",
+      "regexes": ["^[1-9][0-9]*$"]
+    },
+    {
+      "name": "maxBatchBytes",
+      "label": "Max Batch Bytes",
+      "helpText": "Maximum uncompressed batch size in bytes before flushing, in addition to Batch Size. Keep below the Dynatrace log ingest request limit (~50 MB).",
+      "isOptional": true,
+      "defaultValue": "10485760",
+      "regexes": ["^[1-9][0-9]*$"]
+    },
+    {
+      "name": "deadLetterTopic",
+      "label": "Dead-Letter Pub/Sub Topic",
+      "helpText": "Full topic path for messages that fail to be ingested, e.g. projects/my-project/topics/dac-log-forwarder-dlq",
+      "isOptional": false,
+      "regexes": ["^projects\\/[^\\n\\r\\/]+\\/topics\\/[^\\n\\r\\/]+$"]
+    },
+    {
+      "name": "maxReplayAttempts",
+      "label": "Max Replay Attempts",
+      "helpText": "Maximum dead-letter delivery attempts before a message is marked permanent (dt-dlq-permanent=true) and excluded from replay. Bounds replay loops.",
+      "isOptional": true,
+      "defaultValue": "5",
+      "regexes": ["^[1-9][0-9]*$"]
+    },
+    {
+      "name": "replaySubscription",
+      "label": "Replay Subscription (optional)",
+      "helpText": "Optional subscription on the dead-letter topic, filtered to dt-dlq-permanent=\"false\", that this same job also consumes to replay retriable failures in-place. Leave unset to disable.",
+      "isOptional": true,
+      "regexes": ["^projects\\/[^\\n\\r\\/]+\\/subscriptions\\/[^\\n\\r\\/]+$"]
+    },
+    {
+      "name": "replayBatchSize",
+      "label": "Replay Batch Size",
+      "helpText": "Batch size for the 2nd replay tier. Replay batch size de-escalates with retries: 1st retry uses Batch Size, 2nd uses this, 3rd+ are replayed one-by-one.",
+      "isOptional": true,
+      "defaultValue": "50",
+      "regexes": ["^[1-9][0-9]*$"]
+    },
+    {
+      "name": "monitoringConfigurationId",
+      "label": "Monitoring Configuration ID",
+      "helpText": "Identifier sent to Dynatrace as the Dt-Configuration-Id request header on every forwarded batch.",
+      "isOptional": false
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+###############################################################################
+# Dynatrace connection settings
+#
+# These values are pre-filled by Dynatrace for your environment — you normally
+# don't need to change them.
+###############################################################################
+
+# GCP project where this deployment's resources are created (service account,
+# Pub/Sub and, when log forwarding is enabled, Dataflow).
+project_id                   = ""
+# Short ID of the service account Dynatrace uses to monitor your resources
+# (without the @<project>.iam.gserviceaccount.com suffix).
+service_account_id           = ""
+# Display name shown for that service account in GCP.
+service_account_display_name = ""
+# Dynatrace environment
+# Your Dynatrace environment ID; used for API endpoints and to tag GCP resources.
+tenant_id  = ""
+# GCP monitoring configuration ID from Dynatrace; used to name asset feed resources.
+mconfig_id = ""
+# Leave empty for SaaS (defaults to https://{tenant_id}.apps.dynatrace.com);
+# set the full URL for non-SaaS environments (e.g., dev, managed).
+tenant_url = ""
