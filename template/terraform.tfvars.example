@@ -1,0 +1,125 @@
+###############################################################################
+# Terraform Variables: Configuration
+###############################################################################
+
+# Monitoring scope
+# The GCP projects, folders, and organizations Dynatrace should monitor.
+
+# Project IDs to monitor.
+# e.g. ["project-1", "project-2"]
+project_ids_for_monitoring = []
+
+# Folder IDs to monitor.
+# e.g. ["folders/123456789012", "folders/234567890123"]
+folder_ids_for_monitoring = []
+
+# Organization IDs to monitor.
+# e.g. ["123456789012"]
+organization_ids_for_monitoring = []
+
+###############################################################################
+
+# GCP region for all created resources (e.g. us-central1, europe-west1).
+region = ""
+
+###############################################################################
+
+# Log forwarding (optional)
+# Set to true to forward Cloud Logging entries to Dynatrace. This creates a
+# Cloud Logging sink, a Pub/Sub pipeline, and a Dataflow forwarding job.
+# When enabled, provide a Dynatrace API token that has the "logs.ingest" scope.
+# For security the token is not stored in this file — set it as an environment
+# variable before running Terraform:
+#   export TF_VAR_dynatrace_api_token="<token>"
+logs_enabled = false
+
+###############################################################################
+
+# Asset feed (optional)
+# Set to true to stream GCP resource changes to Dynatrace. When enabled, the feed
+# covers the same projects, folders, and organizations you monitor above, so no
+# extra setup is needed.
+asset_feed_enabled = false
+#
+# The settings below are optional and only apply when asset_feed_enabled = true.
+# To target a different scope, uncomment a line below and set your own values.
+# Set a line to [] to turn the asset feed off for that scope type (for example,
+# to monitor projects but run no project-level asset feed).
+# Tip: avoid overlapping scopes (e.g. a folder and a project inside it) — they
+# produce duplicate events and add cost.
+# If these variables are not specified they will default to project_ids_for_monitoring,
+# folder_ids_for_monitoring and organization_ids_for_monitoring.
+#
+# project_ids_for_asset_feed      = ["project-1", "project-2"]
+# folder_ids_for_asset_feed       = ["folders/123456789012", "folders/234567890123"]
+# organization_ids_for_asset_feed = ["123456789012"]
+#
+#
+# (Advanced) Restrict the asset feed to specific GCP asset types. Leave this
+# commented to use the default set of supported types (see create-asset-feed.tf).
+# e.g. ["compute.googleapis.com/Instance", "storage.googleapis.com/Bucket"]
+#
+# asset_feed_asset_types = []
+
+###############################################################################
+
+# Custom labels (optional)
+# Labels applied to every created GCP resource, in addition to Dynatrace's own
+# labels; your values take precedence when keys collide. Keys must be lowercase
+# letters, numbers, hyphens, or underscores (max 63 characters).
+# e.g. { cost_center = "12345", team = "platform", environment = "production" }
+custom_labels = {}
+
+###############################################################################
+
+# Used in IaC-flow (mconfig_id omitted or empty in config.auto.tfvars)
+# Terraform creates a new monitoring configuration with this payload.
+# In App-flow (mconfig_id provided), this value is ignored — Terraform fetches
+# the live payload from Dynatrace and patches only the connection fields.
+
+# Full monitoring configuration payload. Edit featureSets, filtering, enrichment, etc.
+# The template always injects connectionId, serviceAccount, and enabled into credentials[0].
+mconfig_value = <<-JSON
+  {
+    "version": "2.0.2",
+    "description": "GCP monitoring configuration",
+    "activationContext": "DATA_ACQUISITION",
+    "featureSets": [
+      "cloud_run_essential",
+      "cloud_storage_essential",
+      "compute_engine_autodiscovery",
+      "pubsub_autodiscovery"
+    ],
+    "googleCloud": {
+      "credentials": [
+        {
+          "description": "GCP monitoring configuration"
+        }
+      ],
+      "featureSetConfiguration": [
+        { "featureSet": "bigquery_essential" },
+        { "featureSet": "cloud_dns_essential" },
+        { "featureSet": "cloud_functions_essential" },
+        { "featureSet": "cloud_nat_gateway_essential" },
+        { "featureSet": "cloud_run_essential" },
+        { "featureSet": "cloud_storage_essential" },
+        { "featureSet": "compute_engine_essential" },
+        { "featureSet": "kubernetes_engine_essential" },
+        { "featureSet": "load_balancing_essential" },
+        { "featureSet": "network_security_essential" },
+        { "featureSet": "operations_essential" },
+        { "featureSet": "pubsub_essential" },
+        { "featureSet": "spanner_essential" },
+        { "featureSet": "vpc_network_essential" }
+      ],
+      "folderFiltering": [],
+      "labelEnrichment": [],
+      "labelFiltering": [],
+      "locationFiltering": [],
+      "projectFiltering": [],
+      "resources": [],
+      "tagEnrichment": [],
+      "tagFiltering": []
+    }
+  }
+  JSON
