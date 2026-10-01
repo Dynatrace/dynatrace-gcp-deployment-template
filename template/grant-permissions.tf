@@ -109,7 +109,7 @@ resource "google_organization_iam_member" "sa_org_monitoring" {
     for pair in setproduct(toset(var.organization_ids_for_monitoring), local.monitoring_roles) :
     "${pair[0]}/${pair[1]}" => pair
   }
-  org_id = each.value[0]
+  org_id = trimprefix(each.value[0], "organizations/")
   role   = each.value[1]
   member = "serviceAccount:${google_service_account.sa.email}"
 }
