@@ -119,6 +119,14 @@ locals {
   feed_folder_scopes  = local.enable_asset_feed ? toset(local.effective_folder_ids_for_asset_feed) : toset([])
   # google_cloud_asset_organization_feed.org_id expects the bare numeric ID.
   feed_org_scopes = local.enable_asset_feed ? toset([for o in local.effective_org_ids_for_asset_feed : trimprefix(o, "organizations/")]) : toset([])
+
+  # Folder and org feeds publish to the topic using the Cloud Asset service agent of the
+  # billing project (var.project_id). If var.project_id is already in feed_project_scopes,
+  # that agent is provisioned and granted publisher access by cloudasset_agent_publisher.
+  # Otherwise provision it separately so folder/org-only setups can publish.
+  needs_billing_project_agent = local.enable_asset_feed && (
+    length(local.feed_folder_scopes) > 0 || length(local.feed_org_scopes) > 0
+  ) && !contains(local.feed_project_scopes, var.project_id)
 }
 
 # --- Data Sources ---
@@ -239,6 +247,24 @@ resource "google_pubsub_topic_iam_member" "cloudasset_agent_publisher" {
   member   = "serviceAccount:${google_project_service_identity.cloudasset_agent[each.value].email}"
 }
 
+# Cloud Asset service agent for the billing project, used when folder or org feeds are
+# configured but var.project_id is not itself a monitored project (absent from
+# feed_project_scopes, so its agent is not provisioned by cloudasset_agent above).
+resource "google_project_service_identity" "cloudasset_agent_billing" {
+  count    = local.needs_billing_project_agent ? 1 : 0
+  provider = google-beta
+  project  = var.project_id
+  service  = "cloudasset.googleapis.com"
+}
+
+resource "google_pubsub_topic_iam_member" "cloudasset_agent_billing_publisher" {
+  count   = local.needs_billing_project_agent ? 1 : 0
+  project = var.project_id
+  topic   = google_pubsub_topic.asset_feed[0].name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_project_service_identity.cloudasset_agent_billing[0].email}"
+}
+
 # --- Asset Feeds (one per monitoring scope) ---
 
 resource "google_cloud_asset_project_feed" "asset_feed" {
@@ -275,7 +301,11 @@ resource "google_cloud_asset_folder_feed" "asset_feed" {
     }
   }
 
-  depends_on = [google_pubsub_topic.asset_feed]
+  depends_on = [
+    google_pubsub_topic.asset_feed,
+    google_pubsub_topic_iam_member.cloudasset_agent_publisher,
+    google_pubsub_topic_iam_member.cloudasset_agent_billing_publisher,
+  ]
 }
 
 resource "google_cloud_asset_organization_feed" "asset_feed" {
@@ -294,5 +324,9 @@ resource "google_cloud_asset_organization_feed" "asset_feed" {
     }
   }
 
-  depends_on = [google_pubsub_topic.asset_feed]
+  depends_on = [
+    google_pubsub_topic.asset_feed,
+    google_pubsub_topic_iam_member.cloudasset_agent_publisher,
+    google_pubsub_topic_iam_member.cloudasset_agent_billing_publisher,
+  ]
 }
