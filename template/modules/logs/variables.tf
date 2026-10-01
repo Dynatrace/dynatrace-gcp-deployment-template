@@ -32,6 +32,11 @@ variable "dynatrace_api_token" {
   description = "Dynatrace API token with logs.ingest scope"
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = var.dynatrace_api_token != ""
+    error_message = "dynatrace_api_token must be non-empty when the logs module is enabled."
+  }
 }
 
 variable "dataflow_job_name" {
