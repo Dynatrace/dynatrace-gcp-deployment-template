@@ -20,7 +20,7 @@ locals {
   template_object_name = "templates/${var.dataflow_job_name}.json"
   # Dataflow job name carries the image tag so a version bump launches a fresh job.
   # Dots are illegal in Dataflow job names ([a-z]([-a-z0-9]{0,1023})?), so sanitize them.
-  job_name = "${var.dataflow_job_name}-${replace(var.dataflow_image_tag, ".", "-")}-${var.mconfig_id}"
+  job_name = "${var.dataflow_job_name}-${replace(replace(var.dataflow_image_tag, ".", "-"), "_", "-")}-${var.mconfig_id}"
   # Public Dynatrace worker image, pulled directly by Dataflow at job launch.
   image_url = "docker.io/dynatrace/${local.image}"
 }
