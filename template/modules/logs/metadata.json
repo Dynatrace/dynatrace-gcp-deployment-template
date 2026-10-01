@@ -59,7 +59,7 @@
       "helpText": "Maximum dead-letter delivery attempts before a message is marked permanent (dt-dlq-permanent=true) and excluded from replay. Bounds replay loops.",
       "isOptional": true,
       "defaultValue": "5",
-      "regexes": ["^[1-9][0-9]*$"]
+      "regexes": ["^(0|[1-9][0-9]*)$"]
     },
     {
       "name": "replaySubscription",
