@@ -131,7 +131,7 @@ module "logs" {
   service_account_email = google_service_account.sa.email
 
   log_filter          = var.log_filter
-  dynatrace_url       = "${local.effective_tenant_url}/api/gcp/pubsub/v1/logs"
+  dynatrace_url       = "${local.effective_da_url}/api/gcp/pubsub/v1/logs"
   dynatrace_api_token = var.dynatrace_api_token
   dataflow_job_name   = var.dataflow_job_name
   window_seconds      = var.window_seconds
