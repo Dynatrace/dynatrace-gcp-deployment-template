@@ -257,6 +257,7 @@ resource "google_dataflow_flex_template_job" "log_forwarder" {
   service_account_email   = var.service_account_email
   temp_location           = "${google_storage_bucket.dataflow_temp.url}/tmp"
   enable_streaming_engine = true
+  max_workers             = var.max_num_workers
   labels                  = var.labels
 
   parameters = {
@@ -271,7 +272,6 @@ resource "google_dataflow_flex_template_job" "log_forwarder" {
     replaySubscription        = "projects/${var.project_id}/subscriptions/${local.log_dlq_replay_sub_name}"
     replayBatchSize           = tostring(var.replay_batch_size)
     monitoringConfigurationId = var.mconfig_id
-    maxNumWorkers             = tostring(var.max_num_workers)
   }
 
   depends_on = [

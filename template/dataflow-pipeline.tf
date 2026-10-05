@@ -111,8 +111,8 @@ variable "max_num_workers" {
   default     = 4
 
   validation {
-    condition     = var.max_num_workers >= 1
-    error_message = "max_num_workers must be at least 1."
+    condition     = var.max_num_workers >= 1 && var.max_num_workers <= 1000
+    error_message = "max_num_workers must be between 1 and 1000 (Dataflow limit)."
   }
 }
 
