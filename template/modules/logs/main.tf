@@ -275,6 +275,7 @@ resource "google_dataflow_flex_template_job" "log_forwarder" {
   }
 
   depends_on = [
+    google_secret_manager_secret_version.dynatrace_api_token,
     google_pubsub_subscription.log_forwarder,
     google_pubsub_subscription.log_forwarder_dlq_replay,
     google_project_iam_member.sa_dynatrace_token_accessor,
