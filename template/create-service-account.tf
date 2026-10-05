@@ -69,4 +69,7 @@ resource "google_service_account" "sa" {
   account_id   = var.service_account_id
   display_name = var.service_account_display_name
   project      = var.project_id
+
+  # iam.googleapis.com must be enabled before the SA can be created.
+  depends_on = [google_project_service.enabled_apis]
 }
