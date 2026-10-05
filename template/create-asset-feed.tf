@@ -227,12 +227,23 @@ resource "google_pubsub_subscription" "asset_feed_push" {
 
 # --- IAM: Pub/Sub service agent → Token Creator on customer SA ---
 
+# GCP creates the Pub/Sub service agent lazily, so explicitly provision it and reference its
+# email to order the binding below after the identity exists.
+resource "google_project_service_identity" "pubsub_agent" {
+  count    = local.enable_asset_feed ? 1 : 0
+  provider = google-beta
+  project  = var.project_id
+  service  = "pubsub.googleapis.com"
+
+  depends_on = [google_project_service.enabled_apis]
+}
+
 # Required for the push subscription to generate OIDC tokens using the customer SA.
 resource "google_service_account_iam_member" "pubsub_token_creator" {
   count              = local.enable_asset_feed ? 1 : 0
   service_account_id = google_service_account.sa.name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:service-${data.google_project.project[0].number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+  member             = "serviceAccount:${google_project_service_identity.pubsub_agent[0].email}"
 }
 
 # --- IAM: Cloud Asset service agent → Publisher on asset feed topic ---
