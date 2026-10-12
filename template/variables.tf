@@ -86,7 +86,7 @@ locals {
       dt_created_by         = "dynatrace"
       dt_environment_id     = var.tenant_id
       dt_connection_id      = var.mconfig_id
-      goog-partner-solution = ""
+      goog-partner-solution = "isol_plb32_0014m00001h35lhqaq_5wr2jmrew7ufn3tpn5iphg3vpjvkycqe"
     },
     var.custom_labels,
   )
