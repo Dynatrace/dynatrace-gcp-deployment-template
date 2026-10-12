@@ -143,6 +143,7 @@ resource "google_project_service_identity" "dataflow" {
 resource "google_secret_manager_secret" "dynatrace_api_token" {
   secret_id = "${var.dataflow_job_name}-api-token-${var.mconfig_id}"
   project   = var.project_id
+  labels    = var.labels
 
   replication {
     auto {}
