@@ -13,7 +13,7 @@ locals {
   ]
 
   log_forwarder_apis = local.enable_logs ? [
-    "logging.googleapis.com",       # cloud logging sink
+    "logging.googleapis.com",       # dataflow worker logs
     "dataflow.googleapis.com",      # dataflow flex template jobs
     "storage.googleapis.com",       # GCS buckets for dataflow
     "secretmanager.googleapis.com", # Secret Manager for the Dynatrace API token
