@@ -76,21 +76,23 @@ Note: the terraform runner account itself should have following roles:
 roles/iam.serviceAccountAdmin
 roles/iam.serviceAccountUser
 roles/serviceusage.serviceUsageAdmin
-roles/storage.objectUser
 roles/resourcemanager.projectIamAdmin
 roles/resourcemanager.folderIamAdmin
 roles/resourcemanager.organizationIamAdmin
 roles/pubsub.admin
 roles/cloudasset.owner
 roles/dataflow.admin
-roles/logging.admin
+roles/storage.admin
+roles/secretmanager.admin
 ```
 
 `roles/iam.serviceAccountUser` is required for the asset feed push subscription, which
 configures an OIDC token for the customer SA (`create-asset-feed.tf`) — creating it requires
 `iam.serviceAccounts.actAs` on that SA, which `roles/iam.serviceAccountAdmin` alone does not grant.
 
-`roles/dataflow.admin` and `roles/logging.admin` are required only when `logs_enabled = true`.
+`roles/dataflow.admin`, `roles/storage.admin`, and `roles/secretmanager.admin` are required only when
+`logs_enabled = true`: Terraform creates the GCS buckets and their IAM bindings, and creates, reads,
+and destroys the API token secret and its versions.
 
 ## Package contents
 
@@ -103,8 +105,9 @@ configures an OIDC token for the customer SA (`create-asset-feed.tf`) — creati
 | `template/variables.tf`                | Shared variables (tenant/connection identity) and locals (label merge, `effective_tenant_url` derivation)                                                                                                                                                                                                 |
 | `template/versions.tf`                 | Terraform and provider version constraints                                                                                                                                                                                                                                                                |
 | `template/dynatrace-onboarding.tf`     | Configures the Dynatrace side of the integration: creates a HAS GCP connection (service account impersonation), grants the Dynatrace principal the token-creator role, and manages the monitoring configuration (mconfig). In **IaC-flow** (`mconfig_id` omitted or empty) Terraform creates a new mconfig from the `mconfig_value` payload — no UI or `dtctl` step is needed. In **App-flow** (`mconfig_id` provided) Terraform fetches the existing mconfig, imports it, and patches only the connection fields (`connectionId`, `serviceAccount`, `enabled`), preserving all operator settings. |
-| `template/dataflow-pipeline.tf`        | Invokes `modules/logs` when `logs_enabled = true`; declares Dataflow job variables (including `log_filter`); all log forwarder resource names are derived from `dataflow_job_name`                                                                                                                        |
-| `template/modules/logs/`               | Module that provisions the full log forwarder pipeline: Cloud Logging sink, Pub/Sub topics and subscriptions, GCS buckets, flex template spec (built declaratively as a GCS object), Dataflow job, and all required IAM bindings                                                                          |
+| `template/dataflow-pipeline.tf`        | Invokes `modules/logs` when `logs_enabled = true`; declares Dataflow job variables; all log forwarder resource names are derived from `dataflow_job_name`                                                                                                                                                 |
+| `template/modules/logs/`               | Module that provisions the full log forwarder pipeline: Pub/Sub topics and subscriptions, GCS buckets, flex template spec (built declaratively as a GCS object), Dataflow job, and all required IAM bindings                                                                                              |
+| `template/outputs.tf`                  | Root outputs: `log_forwarder_topic_id` (Pub/Sub topic that your log sinks must target; `null` when `logs_enabled = false`)                                                                                                                                                                                 |
 | `template/config.auto.tfvars.example`  | Template for the identity/connection block (`project_id`, service account, `tenant_id`, `mconfig_id`, `tenant_url`). Copy to `config.auto.tfvars` and fill in your values (or let the Dynatrace UI pre-fill it for you).                                                                                 |
 | `template/terraform.tfvars.example`    | Deployment config (region, monitoring/asset-feed scopes, labels, `logs_enabled`, `mconfig_value`). Copy to `terraform.tfvars` and edit to configure your deployment.                                                                                                                                     |
 
@@ -133,11 +136,10 @@ stored in either file — supply it via `TF_VAR_dynatrace_api_token` when `logs_
 ## Log Forwarder Pipeline (optional)
 
 Set `logs_enabled = true` in `terraform.tfvars` to enable the optional log forwarder. When enabled,
-Terraform provisions a streaming pipeline that exports Cloud Logging entries to the Dynatrace Log
-Ingest API:
+Terraform provisions a streaming pipeline that forwards logs to the Dynatrace Log Ingest API:
 
-```
-Cloud Logging sink → Pub/Sub → Dataflow streaming job → Dynatrace Log Ingest API
+```text
+Customer-managed log sinks → Pub/Sub → Dataflow streaming job → Dynatrace Log Ingest API
 ```
 
 Failed messages are routed to a dead-letter Pub/Sub topic and subscription for inspection or replay.
@@ -145,15 +147,133 @@ Failed messages are routed to a dead-letter Pub/Sub topic and subscription for i
 **Prerequisites before applying with `logs_enabled = true`:**
 
 - Ensure `gcloud` is authenticated; the runner account needs `roles/dataflow.admin`,
-  `roles/logging.admin`, and `roles/secretmanager.secretAccessor`
+  `roles/storage.admin`, and `roles/secretmanager.admin`
 - Export a Dynatrace API token with the `data-acquisition:logs:ingest` scope as an environment variable:
-  ```
+  ```bash
   export TF_VAR_dynatrace_api_token="xxx"
   ```
 
 > **Note:** The worker image is public and is pulled directly from Docker Hub by Dataflow at job
 > launch — no local `docker`/`gcloud` image steps are required. This assumes the Dataflow workers
 > have outbound access to Docker Hub (the default).
+
+## Forwarding logs from monitored projects
+
+The template does not create Cloud Logging sinks. Create your own sinks at the project, folder, or
+organization level and point them at the Pub/Sub topic provisioned by the log forwarder.
+
+After `terraform apply`, retrieve the topic ID:
+
+```bash
+terraform output log_forwarder_topic_id
+# → projects/<project>/topics/<job_name>-<mconfig_id>
+```
+
+Grant each sink's writer identity `roles/pubsub.publisher` on that topic so it can publish log
+entries.
+
+**Permissions for creating sinks.** Whoever creates the sinks (not necessarily the Terraform runner)
+needs:
+
+| Action                                                       | Role                                                                 | Scope                                        |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- | -------------------------------------------- |
+| Create, update, or delete sinks                              | `roles/logging.configWriter`                                         | Project, folder, or organization of the sink |
+| Grant the sink's writer identity publish rights on the topic | `roles/pubsub.admin` (or any role with `pubsub.topics.setIamPolicy`) | Onboarding project or the topic itself       |
+
+### Terraform examples
+
+The examples below live in your own Terraform configuration, separate from this template. Paste
+the `terraform output` value into a local:
+
+```hcl
+locals {
+  # Value of `terraform output -raw log_forwarder_topic_id` from this template.
+  log_forwarder_topic_id = "projects/<onboarding-project-id>/topics/<job_name>-<mconfig_id>"
+}
+```
+
+**Project-level sink:**
+
+```hcl
+resource "google_logging_project_sink" "dt_logs" {
+  name        = "dt-log-forwarder"
+  project     = "<monitored-project-id>"
+  destination = "pubsub.googleapis.com/${local.log_forwarder_topic_id}"
+
+  # Optional: restrict which log entries are forwarded (remove to forward all logs).
+  # Excluding Dataflow worker logs prevents a feedback loop if this is the onboarding project.
+  filter = "NOT resource.type=\"dataflow_step\""
+
+  unique_writer_identity = true
+}
+
+resource "google_pubsub_topic_iam_member" "dt_logs_sink_publisher" {
+  topic  = local.log_forwarder_topic_id
+  role   = "roles/pubsub.publisher"
+  member = google_logging_project_sink.dt_logs.writer_identity
+}
+```
+
+**Folder or organization sink** (covers all projects inside the folder/org):
+
+```hcl
+resource "google_logging_folder_sink" "dt_logs" {
+  name             = "dt-log-forwarder"
+  folder           = "folders/<folder-id>"
+  destination      = "pubsub.googleapis.com/${local.log_forwarder_topic_id}"
+  include_children = true
+
+  # Required if the folder contains the onboarding project (see "Feedback loop" below).
+  filter = "NOT resource.type=\"dataflow_step\""
+}
+
+resource "google_pubsub_topic_iam_member" "dt_logs_folder_sink_publisher" {
+  topic  = local.log_forwarder_topic_id
+  role   = "roles/pubsub.publisher"
+  member = google_logging_folder_sink.dt_logs.writer_identity
+}
+```
+
+Use `google_logging_organization_sink` for org-level sinks (same pattern, `org_id` instead of `folder`).
+
+### gcloud CLI equivalent
+
+Run from the template directory so `terraform output` resolves:
+
+```bash
+PROJECT_ID=<monitored-project-id>
+TOPIC_ID=$(terraform output -raw log_forwarder_topic_id)
+
+# Create the sink (project scope). For broader scope replace --project with
+# --folder=<folder-id> or --organization=<org-id>, and add --include-children.
+gcloud logging sinks create dt-log-forwarder \
+  "pubsub.googleapis.com/${TOPIC_ID}" \
+  --log-filter='NOT resource.type="dataflow_step"' \
+  --project=${PROJECT_ID}
+
+# Retrieve the sink's writer identity
+WRITER=$(gcloud logging sinks describe dt-log-forwarder \
+  --project=${PROJECT_ID} \
+  --format="value(writerIdentity)")
+
+# Grant publish rights on the topic
+gcloud pubsub topics add-iam-policy-binding "${TOPIC_ID}" \
+  --member="${WRITER}" \
+  --role="roles/pubsub.publisher"
+```
+
+### Important notes
+
+> **Duplicate log ingestion:** overlapping sinks (for example, a folder sink and a project sink
+> targeting the same project within that folder) will cause each log entry to be ingested twice.
+> Ensure your sinks cover disjoint scopes.
+
+> **Feedback loop:** if one of the monitored projects is the same project where the Dataflow job
+> runs, exclude Dataflow worker logs from your sink filter to prevent the forwarder from ingesting
+> its own operational logs:
+> ```text
+> NOT resource.type="dataflow_step"
+> ```
 
 ## Permissions granted
 

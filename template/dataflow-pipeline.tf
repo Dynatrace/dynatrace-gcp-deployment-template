@@ -17,16 +17,16 @@ variable "dynatrace_api_token" {
 }
 
 variable "dataflow_job_name" {
-  description = "Base name for the Dataflow job and derived log forwarder resources (Pub/Sub topics, subscriptions, log sink, secret)"
+  description = "Base name for the Dataflow job and derived log forwarder resources (Pub/Sub topics, subscriptions, secret)"
   type        = string
   default     = "dt-logs"
 
   # Must satisfy the Dataflow job name regex (lowercase, letter-first) and stay short enough
-  # that the derived Cloud Logging sink name ("<name>-sink-<mconfig_id>") fits its 100-char limit
-  # (36-char UUID mconfig_id + "-sink-" = 42 chars of overhead).
+  # that the longest derived Pub/Sub subscription name ("{name}-dlq-replay-sub-{mconfig_id}")
+  # fits the 255-char Pub/Sub limit: 16-char suffix + 36-char UUID = 52 chars of overhead.
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]*$", var.dataflow_job_name)) && length(var.dataflow_job_name) <= 58
-    error_message = "dataflow_job_name must match ^[a-z][a-z0-9-]*$ (lowercase, digits, hyphens; start with a letter) and be <= 58 characters (Cloud Logging sink name limit)."
+    condition     = can(regex("^[a-z][a-z0-9-]*$", var.dataflow_job_name)) && length(var.dataflow_job_name) <= 203
+    error_message = "dataflow_job_name must match ^[a-z][a-z0-9-]*$ (lowercase, digits, hyphens; start with a letter) and be <= 203 characters (Pub/Sub subscription name limit)."
   }
 }
 
@@ -99,12 +99,6 @@ variable "dataflow_image_tag" {
   }
 }
 
-variable "log_filter" {
-  description = "Logging filter expression (empty string exports all logs)"
-  type        = string
-  default     = ""
-}
-
 variable "max_num_workers" {
   description = "Maximum number of Dataflow worker VMs. Caps autoscaling to prevent runaway scale-out when the Dynatrace log endpoint is unavailable."
   type        = number
@@ -130,7 +124,6 @@ module "logs" {
   labels                = local.all_labels
   service_account_email = google_service_account.sa.email
 
-  log_filter          = var.log_filter
   dynatrace_url       = "${local.effective_da_url}/api/gcp/pubsub/v1/logs"
   dynatrace_api_token = var.dynatrace_api_token
   dataflow_job_name   = var.dataflow_job_name

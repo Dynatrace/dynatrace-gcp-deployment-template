@@ -18,11 +18,6 @@ variable "service_account_email" {
   type        = string
 }
 
-variable "log_filter" {
-  description = "Logging filter expression"
-  type        = string
-}
-
 variable "dynatrace_url" {
   description = "Dynatrace Log Ingest API URL (derived from tenant_url — not user-settable)"
   type        = string
@@ -40,7 +35,7 @@ variable "dynatrace_api_token" {
 }
 
 variable "dataflow_job_name" {
-  description = "Base name for the Dataflow job; derived resource names (topics, subscriptions, sink, secret) are prefixed with this"
+  description = "Base name for the Dataflow job; derived resource names (topics, subscriptions, secret) are prefixed with this"
   type        = string
 }
 

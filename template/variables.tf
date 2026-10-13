@@ -62,7 +62,7 @@ variable "custom_labels" {
 }
 
 variable "logs_enabled" {
-  description = "Enable Cloud Logging export to Pub/Sub and Dataflow log-forwarding pipeline. When false, no log sink, Pub/Sub, or Dataflow resources are created."
+  description = "Enable the Pub/Sub + Dataflow log-forwarding pipeline. When false, no Pub/Sub or Dataflow resources are created."
   type        = bool
   default     = false
 }

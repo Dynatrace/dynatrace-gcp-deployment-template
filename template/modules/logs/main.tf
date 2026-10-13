@@ -1,5 +1,5 @@
 ###############################################################################
-# Module: Logs — Cloud Logging Export, Pub/Sub Pipeline, and Dataflow Job
+# Module: Logs — Pub/Sub Pipeline and Dataflow Job
 ###############################################################################
 
 data "google_project" "project" {
@@ -13,7 +13,6 @@ locals {
   log_dlq_topic_name        = "${var.dataflow_job_name}-dlq-${var.mconfig_id}"
   log_dlq_subscription_name = "${var.dataflow_job_name}-dlq-sub-${var.mconfig_id}"
   log_dlq_replay_sub_name   = "${var.dataflow_job_name}-dlq-replay-sub-${var.mconfig_id}"
-  log_sink_name             = "${var.dataflow_job_name}-sink-${var.mconfig_id}"
   # GCS bucket names are capped at 63 chars. Project number (always 12 digits) is used
   # instead of project ID (up to 30 chars) to keep names safely under the limit.
   template_bucket_name = "${data.google_project.project.number}-logs-${var.mconfig_id}"
@@ -91,24 +90,6 @@ resource "google_pubsub_topic_iam_member" "sa_dlq_publisher" {
   topic   = google_pubsub_topic.log_forwarder_dlq.name
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${var.service_account_email}"
-}
-
-# --- Log Sink ---
-
-resource "google_logging_project_sink" "log_forwarder" {
-  name        = local.log_sink_name
-  project     = var.project_id
-  destination = "pubsub.googleapis.com/${google_pubsub_topic.log_forwarder.id}"
-  filter      = var.log_filter
-
-  unique_writer_identity = true
-}
-
-resource "google_pubsub_topic_iam_member" "sink_publisher" {
-  project = var.project_id
-  topic   = google_pubsub_topic.log_forwarder.name
-  role    = "roles/pubsub.publisher"
-  member  = google_logging_project_sink.log_forwarder.writer_identity
 }
 
 # --- GCS Buckets ---
