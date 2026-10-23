@@ -60,7 +60,7 @@ variable "asset_feed_asset_types" {
     "bigtableadmin.googleapis.com/Backup",
     "bigtableadmin.googleapis.com/Cluster",
     "bigtableadmin.googleapis.com/Table",
-    "cloudfunctions.googleapis.com/CloudFunction",
+    "cloudfunctions.googleapis.com/Function",
     "cloudresourcemanager.googleapis.com/TagBinding",
     "cloudtasks.googleapis.com/Queue",
     "composer.googleapis.com/Environment",
