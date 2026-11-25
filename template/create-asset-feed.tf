@@ -95,6 +95,7 @@ variable "asset_feed_asset_types" {
     "redis.googleapis.com/Instance",
     "run.googleapis.com/Job",
     "run.googleapis.com/Revision",
+    "run.googleapis.com/Service",
     "spanner.googleapis.com/Instance",
     "storage.googleapis.com/Bucket",
   ]
